@@ -222,17 +222,21 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           const shoulderWidth = Math.sqrt(Math.pow(rsX - lsX, 2) + Math.pow(rsY - lsY, 2));
           const torsoHeight = Math.sqrt(Math.pow(hipCenterX - shoulderCenterX, 2) + Math.pow(hipCenterY - shoulderCenterY, 2));
 
-          const clothWidth = shoulderWidth * 1.9;
-          const clothHeight = torsoHeight * 1.6;
+          const clothWidth = shoulderWidth * 2.2;
+          const clothHeight = torsoHeight * 1.7;
+
+          const expandFactor = 0.4;
+          const shoulderExpandX = (rsX - lsX) * expandFactor;
+          const hipExpandX = (rhX - lhX) * expandFactor;
 
           const rawBounds: BodyBounds = {
-            leftShoulderX: lsX,
+            leftShoulderX: lsX - shoulderExpandX,
             leftShoulderY: lsY,
-            rightShoulderX: rsX,
+            rightShoulderX: rsX + shoulderExpandX,
             rightShoulderY: rsY,
-            leftHipX: lhX,
+            leftHipX: lhX - hipExpandX,
             leftHipY: lhY,
-            rightHipX: rhX,
+            rightHipX: rhX + hipExpandX,
             rightHipY: rhY,
             centerX: centerX,
             centerY: centerY,
