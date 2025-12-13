@@ -1,0 +1,260 @@
+# MVP DOCUMENT – REAL-TIME UPPER-BODY VIRTUAL TRY-ON (D2C BRAND)
+
+## 1. OVERVIEW
+You are building a D2C apparel brand with a real-time upper-body try-on feature. This MVP will allow users to try your brand's T-shirts/hoodies through their camera.
+
+---
+
+## 2. CORE MVP FEATURES
+
+### a) Live Camera Try-On
+- User opens camera
+- System overlays your brand's T-shirt/hoodie onto upper body
+- Real-time tracking using shoulders + chest keypoints
+
+### b) Product Catalog (Only Your Brand)
+- 10–20 products
+- Transparent PNG assets (front view only)
+- Product switching with left/right buttons
+
+### c) Auto Fit System
+- Uses MediaPipe Pose keypoints
+- Tracks shoulders, chest, and torso to scale/position the garment
+
+### d) Basic Size Suggestion
+- Estimates shoulder width and chest width using pose data
+- Matches with predefined size chart (S/M/L/XL)
+
+### e) Add-to-Cart + Product Page
+- Try → View details → Buy Now or Add to Cart
+
+---
+
+## 3. OPTIONAL (RECOMMENDED) ADD-ONS
+
+a) Color switch for same product  
+b) Basic analytics (clicks, try-ons)  
+c) Simple recommendation engine for best-selling items
+
+---
+
+## 4. DEVELOPER TECH STACK
+
+### Frontend
+- React + Vite
+- TailwindCSS
+- Three.js (for overlay)
+- MediaPipe Pose (body tracking)
+
+### Backend
+- Node.js + Express
+- MongoDB (Database + Image Storage using GridFS)
+- Mongoose (ODM)
+- Multer (File upload handling)
+
+---
+
+## 5. PRODUCT ASSETS YOU (KAIF) MUST PROVIDE
+
+a) Transparent PNG files of all products (front view) – 1500x1500 px minimum  
+b) Product details JSON (name, price, sizes, description)  
+c) Size chart for all items  
+d) Logo + brand colors
+
+---
+
+## 6. FREE RESOURCES FOR DEVS
+
+**Body Tracking:**
+- MediaPipe Pose: https://github.com/google/mediapipe/tree/master/mediapipe/tasks/vision/pose_landmarker
+
+**2D Clothing Overlay:**
+- TensorFlow.js Body Segmentation: https://github.com/tensorflow/tfjs-models/tree/master/body-segmentation
+
+**Frontend Components:**
+- TailwindCSS: https://tailwindcss.com
+
+**Database:**
+- MongoDB Atlas (Free Tier): https://www.mongodb.com/cloud/atlas
+
+**Image Storage in MongoDB:**
+- GridFS Documentation: https://www.mongodb.com/docs/manual/core/gridfs/
+- Multer-GridFS-Storage: https://www.npmjs.com/package/multer-gridfs-storage
+
+**3D/Overlay Rendering:**
+- Three.js: https://threejs.org
+
+---
+
+## 7. MVP WORKFLOW FOR DEVELOPER
+
+**Step 1:** Setup React + Vite project  
+**Step 2:** Integrate camera input + MediaPipe pose detection  
+**Step 3:** Build overlay system (scale, rotation, fit)  
+**Step 4:** Setup MongoDB with GridFS for image storage  
+**Step 5:** Create image upload API endpoints  
+**Step 6:** Import your PNG clothing assets to MongoDB  
+**Step 7:** Create product switcher with images from GridFS  
+**Step 8:** Implement size suggestion logic  
+**Step 9:** Connect backend for product data + checkout  
+**Step 10:** Build admin panel for product management
+
+---
+
+## 8. MONGODB SCHEMA STRUCTURE
+
+### Products Collection
+```javascript
+{
+  _id: ObjectId,
+  name: String,
+  description: String,
+  price: Number,
+  sizes: [String], // ['S', 'M', 'L', 'XL']
+  colors: [String],
+  imageFileId: ObjectId, // Reference to GridFS file
+  category: String, // 'tshirt', 'hoodie'
+  sizeChart: {
+    S: { shoulder: Number, chest: Number },
+    M: { shoulder: Number, chest: Number },
+    L: { shoulder: Number, chest: Number },
+    XL: { shoulder: Number, chest: Number }
+  },
+  inStock: Boolean,
+  createdAt: Date
+}
+```
+
+### GridFS Collections (Auto-created by MongoDB)
+GridFS automatically creates two collections:
+
+**fs.files** - Stores file metadata
+```javascript
+{
+  _id: ObjectId,
+  length: Number,
+  chunkSize: Number,
+  uploadDate: Date,
+  filename: String,
+  contentType: String, // 'image/png'
+  metadata: {
+    productId: ObjectId,
+    isTransparent: Boolean
+  }
+}
+```
+
+**fs.chunks** - Stores actual file data in chunks
+```javascript
+{
+  _id: ObjectId,
+  files_id: ObjectId, // Reference to fs.files
+  n: Number, // Chunk number
+  data: Binary // Actual image data
+}
+```
+
+### Cart Collection
+```javascript
+{
+  _id: ObjectId,
+  userId: String, // Session ID or User ID
+  items: [{
+    productId: ObjectId,
+    size: String,
+    color: String,
+    quantity: Number
+  }],
+  totalPrice: Number,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Analytics Collection (Optional)
+```javascript
+{
+  _id: ObjectId,
+  productId: ObjectId,
+  action: String, // 'view', 'try-on', 'add-to-cart'
+  timestamp: Date,
+  sessionId: String
+}
+```
+
+---
+
+## 9. GRIDFS IMAGE HANDLING
+
+### Backend Implementation
+
+**Upload Image to GridFS:**
+```javascript
+const multer = require('multer');
+const { GridFsStorage } = require('multer-gridfs-storage');
+
+// Create storage engine
+const storage = new GridFsStorage({
+  url: mongoURI,
+  file: (req, file) => {
+    return {
+      filename: file.originalname,
+      bucketName: 'fs', // Default bucket
+      metadata: {
+        productId: req.body.productId,
+        isTransparent: true
+      }
+    };
+  }
+});
+
+const upload = multer({ storage });
+```
+
+**Retrieve Image from GridFS:**
+```javascript
+app.get('/api/images/:fileId', async (req, res) => {
+  const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db);
+  
+  const downloadStream = bucket.openDownloadStream(
+    new mongoose.Types.ObjectId(req.params.fileId)
+  );
+  
+  downloadStream.pipe(res);
+});
+```
+
+### Frontend Image Loading
+```javascript
+// In React component
+<img 
+  src={`http://localhost:5000/api/images/${product.imageFileId}`} 
+  alt={product.name}
+/>
+```
+
+---
+
+## 10. IMPORTANT NOTES
+
+- This MVP is **ONLY** for upper-body try-on
+- No user clothing upload
+- Only your brand's catalog
+- **All images stored directly in MongoDB using GridFS**
+- MongoDB Atlas free tier: 512MB storage
+- Each transparent PNG (~500KB) = ~40-50 products possible in free tier
+- GridFS automatically handles files larger than 16MB by chunking
+- No external image hosting services required
+- Single database solution for entire application
+
+---
+
+## 11. GRIDFS ADVANTAGES FOR THIS PROJECT
+
+✅ Single database dependency (MongoDB only)  
+✅ No external API keys or third-party services  
+✅ Automatic file chunking for large images  
+✅ Built-in metadata storage  
+✅ Easy backup (entire app data in one database)  
+✅ Direct integration with Mongoose  
+✅ Perfect for MVP with 10-20 products
