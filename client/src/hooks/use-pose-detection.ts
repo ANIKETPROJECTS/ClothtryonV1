@@ -222,11 +222,8 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           const shoulderWidth = Math.sqrt(Math.pow(rsX - lsX, 2) + Math.pow(rsY - lsY, 2));
           const torsoHeight = Math.sqrt(Math.pow(hipCenterX - shoulderCenterX, 2) + Math.pow(hipCenterY - shoulderCenterY, 2));
 
-          const minShoulderWidth = canvas.width * 0.25;
-          const effectiveShoulderWidth = Math.max(shoulderWidth, minShoulderWidth);
-          
-          const clothWidth = effectiveShoulderWidth * 2.5;
-          const clothHeight = torsoHeight * 2.0;
+          const clothWidth = shoulderWidth * 1.9;
+          const clothHeight = torsoHeight * 1.6;
 
           const rawBounds: BodyBounds = {
             leftShoulderX: lsX,
@@ -249,7 +246,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           setBodyBounds(smoothed);
 
           ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
-          const pointRadius = 10;
+          const pointRadius = 16;
           
           [
             { x: smoothed.leftShoulderX, y: smoothed.leftShoulderY },
@@ -263,7 +260,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           });
 
           ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
-          ctx.lineWidth = 4;
+          ctx.lineWidth = 6;
           
           ctx.beginPath();
           ctx.moveTo(smoothed.leftShoulderX, smoothed.leftShoulderY);
