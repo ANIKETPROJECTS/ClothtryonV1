@@ -118,23 +118,25 @@ export default function TryOnPage() {
 
           {isTracking && selectedProduct && bodyBounds && (
             <div
-              className="pointer-events-none absolute opacity-80"
+              className="pointer-events-none absolute transition-all duration-100 ease-out"
               style={{
                 transform: "scaleX(-1)",
                 left: `${(bodyBounds.x / (videoRef.current?.videoWidth || 640)) * 100}%`,
                 top: `${(bodyBounds.y / (videoRef.current?.videoHeight || 480)) * 100}%`,
                 width: `${(bodyBounds.width / (videoRef.current?.videoWidth || 640)) * 100}%`,
                 height: `${(bodyBounds.height / (videoRef.current?.videoHeight || 480)) * 100}%`,
+                opacity: 0.85,
               }}
             >
               <img
                 src={selectedProduct.imageUrl}
                 alt={selectedProduct.name}
-                className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-screen"
+                className="h-full w-full object-contain"
                 style={{
                   filter: selectedColor
                     ? `drop-shadow(0 0 10px ${selectedColor}40)`
                     : undefined,
+                  mixBlendMode: "multiply",
                 }}
               />
             </div>

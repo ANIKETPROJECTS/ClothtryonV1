@@ -15,6 +15,7 @@ interface BodyBounds {
   height: number;
   shoulderY: number;
   hipY: number;
+  centerX: number;
 }
 
 interface PoseDetectionResult {
@@ -37,6 +38,26 @@ const defaultSizeChart: SizeChart = {
   XL: { shoulder: 48, chest: 114 },
 };
 
+const SMOOTHING_FACTOR = 0.3;
+
+function lerp(current: number, target: number, factor: number): number {
+  return current + (target - current) * factor;
+}
+
+function smoothBounds(current: BodyBounds | null, target: BodyBounds): BodyBounds {
+  if (!current) return target;
+  
+  return {
+    x: lerp(current.x, target.x, SMOOTHING_FACTOR),
+    y: lerp(current.y, target.y, SMOOTHING_FACTOR),
+    width: lerp(current.width, target.width, SMOOTHING_FACTOR),
+    height: lerp(current.height, target.height, SMOOTHING_FACTOR),
+    shoulderY: lerp(current.shoulderY, target.shoulderY, SMOOTHING_FACTOR),
+    hipY: lerp(current.hipY, target.hipY, SMOOTHING_FACTOR),
+    centerX: lerp(current.centerX, target.centerX, SMOOTHING_FACTOR),
+  };
+}
+
 export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDetectionResult {
   const { sizeChart = defaultSizeChart } = options;
   
@@ -45,6 +66,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
+  const smoothedBoundsRef = useRef<BodyBounds | null>(null);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
@@ -157,22 +179,32 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           const recommendation = calculateSizeRecommendation(detectedKeypoints);
           setSizeRecommendation(recommendation);
 
-          const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x) * canvas.width;
+          const shoulderWidthPx = Math.abs(rightShoulder.x - leftShoulder.x) * canvas.width;
           const shoulderCenterX = ((leftShoulder.x + rightShoulder.x) / 2) * canvas.width;
           const shoulderY = ((leftShoulder.y + rightShoulder.y) / 2) * canvas.height;
+          const hipCenterX = ((leftHip.x + rightHip.x) / 2) * canvas.width;
           const hipY = ((leftHip.y + rightHip.y) / 2) * canvas.height;
-          const torsoHeight = hipY - shoulderY;
+          const torsoHeight = Math.abs(hipY - shoulderY);
+          
+          const torsoCenterX = (shoulderCenterX + hipCenterX) / 2;
 
-          const padding = shoulderWidth * 0.3;
-          const bounds: BodyBounds = {
-            x: shoulderCenterX - shoulderWidth / 2 - padding,
-            y: shoulderY - padding * 0.5,
-            width: shoulderWidth + padding * 2,
-            height: torsoHeight + padding * 1.5,
+          const widthPadding = shoulderWidthPx * 0.4;
+          const clothWidth = shoulderWidthPx + widthPadding * 2;
+          const clothHeight = torsoHeight * 1.3;
+
+          const rawBounds: BodyBounds = {
+            x: torsoCenterX - clothWidth / 2,
+            y: shoulderY - torsoHeight * 0.15,
+            width: clothWidth,
+            height: clothHeight,
             shoulderY: shoulderY,
             hipY: hipY,
+            centerX: torsoCenterX,
           };
-          setBodyBounds(bounds);
+
+          const smoothed = smoothBounds(smoothedBoundsRef.current, rawBounds);
+          smoothedBoundsRef.current = smoothed;
+          setBodyBounds(smoothed);
 
           ctx.fillStyle = "rgba(34, 197, 94, 0.8)";
           const pointRadius = 8;
@@ -258,6 +290,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
       detectorRef.current.dispose();
       detectorRef.current = null;
     }
+    smoothedBoundsRef.current = null;
     setIsTracking(false);
     setKeypoints(null);
     setBodyBounds(null);
