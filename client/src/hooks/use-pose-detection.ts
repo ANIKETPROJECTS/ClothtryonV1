@@ -9,13 +9,19 @@ interface UsePoseDetectionOptions {
 }
 
 interface BodyBounds {
-  x: number;
-  y: number;
+  leftShoulderX: number;
+  leftShoulderY: number;
+  rightShoulderX: number;
+  rightShoulderY: number;
+  leftHipX: number;
+  leftHipY: number;
+  rightHipX: number;
+  rightHipY: number;
+  centerX: number;
+  centerY: number;
   width: number;
   height: number;
-  shoulderY: number;
-  hipY: number;
-  centerX: number;
+  rotation: number;
 }
 
 interface PoseDetectionResult {
@@ -38,23 +44,36 @@ const defaultSizeChart: SizeChart = {
   XL: { shoulder: 48, chest: 114 },
 };
 
-const SMOOTHING_FACTOR = 0.3;
+const SMOOTHING_FACTOR = 0.25;
 
 function lerp(current: number, target: number, factor: number): number {
   return current + (target - current) * factor;
+}
+
+function lerpAngle(current: number, target: number, factor: number): number {
+  let diff = target - current;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  return current + diff * factor;
 }
 
 function smoothBounds(current: BodyBounds | null, target: BodyBounds): BodyBounds {
   if (!current) return target;
   
   return {
-    x: lerp(current.x, target.x, SMOOTHING_FACTOR),
-    y: lerp(current.y, target.y, SMOOTHING_FACTOR),
+    leftShoulderX: lerp(current.leftShoulderX, target.leftShoulderX, SMOOTHING_FACTOR),
+    leftShoulderY: lerp(current.leftShoulderY, target.leftShoulderY, SMOOTHING_FACTOR),
+    rightShoulderX: lerp(current.rightShoulderX, target.rightShoulderX, SMOOTHING_FACTOR),
+    rightShoulderY: lerp(current.rightShoulderY, target.rightShoulderY, SMOOTHING_FACTOR),
+    leftHipX: lerp(current.leftHipX, target.leftHipX, SMOOTHING_FACTOR),
+    leftHipY: lerp(current.leftHipY, target.leftHipY, SMOOTHING_FACTOR),
+    rightHipX: lerp(current.rightHipX, target.rightHipX, SMOOTHING_FACTOR),
+    rightHipY: lerp(current.rightHipY, target.rightHipY, SMOOTHING_FACTOR),
+    centerX: lerp(current.centerX, target.centerX, SMOOTHING_FACTOR),
+    centerY: lerp(current.centerY, target.centerY, SMOOTHING_FACTOR),
     width: lerp(current.width, target.width, SMOOTHING_FACTOR),
     height: lerp(current.height, target.height, SMOOTHING_FACTOR),
-    shoulderY: lerp(current.shoulderY, target.shoulderY, SMOOTHING_FACTOR),
-    hipY: lerp(current.hipY, target.hipY, SMOOTHING_FACTOR),
-    centerX: lerp(current.centerX, target.centerX, SMOOTHING_FACTOR),
+    rotation: lerpAngle(current.rotation, target.rotation, SMOOTHING_FACTOR),
   };
 }
 
@@ -179,63 +198,88 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           const recommendation = calculateSizeRecommendation(detectedKeypoints);
           setSizeRecommendation(recommendation);
 
-          const shoulderWidthPx = Math.abs(rightShoulder.x - leftShoulder.x) * canvas.width;
-          const shoulderCenterX = ((leftShoulder.x + rightShoulder.x) / 2) * canvas.width;
-          const shoulderY = ((leftShoulder.y + rightShoulder.y) / 2) * canvas.height;
-          const hipCenterX = ((leftHip.x + rightHip.x) / 2) * canvas.width;
-          const hipY = ((leftHip.y + rightHip.y) / 2) * canvas.height;
-          const torsoHeight = Math.abs(hipY - shoulderY);
-          
-          const torsoCenterX = (shoulderCenterX + hipCenterX) / 2;
+          const lsX = leftShoulder.x * canvas.width;
+          const lsY = leftShoulder.y * canvas.height;
+          const rsX = rightShoulder.x * canvas.width;
+          const rsY = rightShoulder.y * canvas.height;
+          const lhX = leftHip.x * canvas.width;
+          const lhY = leftHip.y * canvas.height;
+          const rhX = rightHip.x * canvas.width;
+          const rhY = rightHip.y * canvas.height;
 
-          const widthPadding = shoulderWidthPx * 0.4;
-          const clothWidth = shoulderWidthPx + widthPadding * 2;
-          const clothHeight = torsoHeight * 1.3;
+          const shoulderAngle = Math.atan2(rsY - lsY, rsX - lsX);
+          const hipAngle = Math.atan2(rhY - lhY, rhX - lhX);
+          const avgRotation = (shoulderAngle + hipAngle) / 2;
+
+          const shoulderCenterX = (lsX + rsX) / 2;
+          const shoulderCenterY = (lsY + rsY) / 2;
+          const hipCenterX = (lhX + rhX) / 2;
+          const hipCenterY = (lhY + rhY) / 2;
+
+          const centerX = (shoulderCenterX + hipCenterX) / 2;
+          const centerY = (shoulderCenterY + hipCenterY) / 2;
+
+          const shoulderWidth = Math.sqrt(Math.pow(rsX - lsX, 2) + Math.pow(rsY - lsY, 2));
+          const torsoHeight = Math.sqrt(Math.pow(hipCenterX - shoulderCenterX, 2) + Math.pow(hipCenterY - shoulderCenterY, 2));
+
+          const clothWidth = shoulderWidth * 1.6;
+          const clothHeight = torsoHeight * 1.4;
 
           const rawBounds: BodyBounds = {
-            x: torsoCenterX - clothWidth / 2,
-            y: shoulderY - torsoHeight * 0.15,
+            leftShoulderX: lsX,
+            leftShoulderY: lsY,
+            rightShoulderX: rsX,
+            rightShoulderY: rsY,
+            leftHipX: lhX,
+            leftHipY: lhY,
+            rightHipX: rhX,
+            rightHipY: rhY,
+            centerX: centerX,
+            centerY: centerY,
             width: clothWidth,
             height: clothHeight,
-            shoulderY: shoulderY,
-            hipY: hipY,
-            centerX: torsoCenterX,
+            rotation: avgRotation,
           };
 
           const smoothed = smoothBounds(smoothedBoundsRef.current, rawBounds);
           smoothedBoundsRef.current = smoothed;
           setBodyBounds(smoothed);
 
-          ctx.fillStyle = "rgba(34, 197, 94, 0.8)";
-          const pointRadius = 8;
+          ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
+          const pointRadius = 10;
           
-          [leftShoulder, rightShoulder, leftHip, rightHip].forEach((point) => {
+          [
+            { x: smoothed.leftShoulderX, y: smoothed.leftShoulderY },
+            { x: smoothed.rightShoulderX, y: smoothed.rightShoulderY },
+            { x: smoothed.leftHipX, y: smoothed.leftHipY },
+            { x: smoothed.rightHipX, y: smoothed.rightHipY },
+          ].forEach((point) => {
             ctx.beginPath();
-            ctx.arc(point.x * canvas.width, point.y * canvas.height, pointRadius, 0, Math.PI * 2);
+            ctx.arc(point.x, point.y, pointRadius, 0, Math.PI * 2);
             ctx.fill();
           });
 
-          ctx.strokeStyle = "rgba(34, 197, 94, 0.6)";
-          ctx.lineWidth = 3;
+          ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
+          ctx.lineWidth = 4;
           
           ctx.beginPath();
-          ctx.moveTo(leftShoulder.x * canvas.width, leftShoulder.y * canvas.height);
-          ctx.lineTo(rightShoulder.x * canvas.width, rightShoulder.y * canvas.height);
+          ctx.moveTo(smoothed.leftShoulderX, smoothed.leftShoulderY);
+          ctx.lineTo(smoothed.rightShoulderX, smoothed.rightShoulderY);
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.moveTo(leftHip.x * canvas.width, leftHip.y * canvas.height);
-          ctx.lineTo(rightHip.x * canvas.width, rightHip.y * canvas.height);
+          ctx.moveTo(smoothed.leftHipX, smoothed.leftHipY);
+          ctx.lineTo(smoothed.rightHipX, smoothed.rightHipY);
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.moveTo(leftShoulder.x * canvas.width, leftShoulder.y * canvas.height);
-          ctx.lineTo(leftHip.x * canvas.width, leftHip.y * canvas.height);
+          ctx.moveTo(smoothed.leftShoulderX, smoothed.leftShoulderY);
+          ctx.lineTo(smoothed.leftHipX, smoothed.leftHipY);
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.moveTo(rightShoulder.x * canvas.width, rightShoulder.y * canvas.height);
-          ctx.lineTo(rightHip.x * canvas.width, rightHip.y * canvas.height);
+          ctx.moveTo(smoothed.rightShoulderX, smoothed.rightShoulderY);
+          ctx.lineTo(smoothed.rightHipX, smoothed.rightHipY);
           ctx.stroke();
         }
       }

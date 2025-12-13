@@ -118,20 +118,21 @@ export default function TryOnPage() {
 
           {isTracking && selectedProduct && bodyBounds && (
             <div
-              className="pointer-events-none absolute transition-all duration-100 ease-out"
+              className="pointer-events-none absolute"
               style={{
-                transform: "scaleX(-1)",
-                left: `${(bodyBounds.x / (videoRef.current?.videoWidth || 640)) * 100}%`,
-                top: `${(bodyBounds.y / (videoRef.current?.videoHeight || 480)) * 100}%`,
+                left: `${(bodyBounds.centerX / (videoRef.current?.videoWidth || 640)) * 100}%`,
+                top: `${(bodyBounds.centerY / (videoRef.current?.videoHeight || 480)) * 100}%`,
                 width: `${(bodyBounds.width / (videoRef.current?.videoWidth || 640)) * 100}%`,
                 height: `${(bodyBounds.height / (videoRef.current?.videoHeight || 480)) * 100}%`,
-                opacity: 0.85,
+                transform: `scaleX(-1) translate(50%, -50%) rotate(${-bodyBounds.rotation}rad)`,
+                transformOrigin: "center center",
+                opacity: 0.9,
               }}
             >
               <img
                 src={selectedProduct.imageUrl}
                 alt={selectedProduct.name}
-                className="h-full w-full object-contain"
+                className="h-full w-full object-fill"
                 style={{
                   filter: selectedColor
                     ? `drop-shadow(0 0 10px ${selectedColor}40)`
