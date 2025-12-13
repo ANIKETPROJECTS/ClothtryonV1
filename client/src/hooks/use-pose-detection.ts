@@ -246,7 +246,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           setBodyBounds(smoothed);
 
           ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
-          const pointRadius = 16;
+          const pointRadius = 24;
           
           [
             { x: smoothed.leftShoulderX, y: smoothed.leftShoulderY },
@@ -260,7 +260,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): PoseDet
           });
 
           ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
-          ctx.lineWidth = 6;
+          ctx.lineWidth = 8;
           
           ctx.beginPath();
           ctx.moveTo(smoothed.leftShoulderX, smoothed.leftShoulderY);
