@@ -47,6 +47,23 @@ Preferred communication style: Simple, everyday language.
 - `DELETE /api/products/:id` - Delete product
 - Cart endpoints for session-based cart management
 
+## Netlify Deployment
+
+### Configuration Files
+- **netlify.toml**: Deployment configuration with redirects for API and SPA routing
+- **netlify/functions/api.ts**: Serverless function handling all API endpoints
+- **script/build-netlify.ts**: Build script for Netlify deployment
+
+### Build Commands
+- `npm run build:netlify` - Builds frontend for Netlify static hosting
+
+### Deployment Steps
+1. Connect repository to Netlify
+2. Build command: `npm run build:netlify`
+3. Publish directory: `dist/public`
+4. Functions directory: `netlify/functions`
+5. Add `MONGODB_URI` environment variable in Netlify dashboard
+
 ## External Dependencies
 
 ### Machine Learning / Computer Vision
