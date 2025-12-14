@@ -1,0 +1,354 @@
+================================================================================
+                    ONYU - VIRTUAL TRY-ON APPLICATION
+                      TECHNICAL DOCUMENTATION
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Overview
+2. Architecture
+3. Frontend Stack
+4. Backend Stack
+5. AI/ML Component (Pose Detection)
+6. Data Flow
+7. Database
+8. Deployment
+9. Key Files Reference
+10. API Endpoints
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+ONYU is a virtual try-on e-commerce application that allows users to:
+- Browse clothing products (t-shirts, hoodies)
+- Try on clothes virtually using their webcam
+- Get AI-powered size recommendations based on body measurements
+- Add items to cart and proceed to checkout
+
+The application uses real-time pose detection to overlay clothing on the user's
+body and calculate personalized size recommendations.
+
+================================================================================
+2. ARCHITECTURE
+================================================================================
+
+The application follows a modern full-stack architecture:
+
++------------------+       +------------------+       +------------------+
+|                  |       |                  |       |                  |
+|   React Frontend | <---> |  Express Backend | <---> |   MongoDB Atlas  |
+|   (Vite bundled) |  API  |   (Node.js)      | CRUD  |   (Database)     |
+|                  |       |                  |       |                  |
++------------------+       +------------------+       +------------------+
+        |
+        v
++------------------+
+|   TensorFlow.js  |
+|   Pose Detection |
+|   (Client-side)  |
++------------------+
+
+Development Environment:
+- Both frontend and backend run on port 5000
+- Vite dev server handles hot module replacement (HMR)
+- Express API routes prefixed with /api
+
+Production Environment (Netlify):
+- Static frontend served from dist/public
+- Serverless functions handle API requests
+- MongoDB Atlas for persistent storage
+
+================================================================================
+3. FRONTEND STACK
+================================================================================
+
+Framework & Libraries:
+- React 18 with TypeScript
+- Vite for bundling and development server
+- TailwindCSS for styling
+- shadcn/ui component library (Radix UI primitives)
+
+State Management:
+- TanStack React Query (v5) for server state (API data caching)
+- React Context for client state:
+  - CartContext: Shopping cart management
+  - ThemeContext: Light/dark mode toggle
+
+Routing:
+- Wouter (lightweight React router)
+- Routes defined in client/src/App.tsx
+
+Key Pages:
+- HomePage (/)           - Landing page with hero section
+- ProductsPage (/products) - Product catalog grid
+- ProductDetailPage (/product/:id) - Individual product view
+- TryOnPage (/try-on)    - Virtual try-on experience with camera
+- AdminPage (/admin)     - Product management dashboard
+
+Component Structure:
+client/src/
+├── components/
+│   ├── ui/              # shadcn/ui components (Button, Card, etc.)
+│   ├── header.tsx       # Navigation bar
+│   ├── cart-drawer.tsx  # Sliding cart panel
+│   ├── theme-provider.tsx
+│   └── theme-toggle.tsx
+├── hooks/
+│   ├── use-cart.tsx     # Cart state management
+│   ├── use-pose-detection.ts  # TensorFlow pose detection
+│   ├── use-toast.ts     # Toast notifications
+│   └── use-mobile.tsx   # Responsive detection
+├── lib/
+│   ├── queryClient.ts   # React Query setup & API helpers
+│   └── utils.ts         # Utility functions (cn, etc.)
+├── pages/               # Route components
+├── App.tsx              # Root component with providers
+├── main.tsx             # Entry point
+└── index.css            # Global styles & Tailwind
+
+================================================================================
+4. BACKEND STACK
+================================================================================
+
+Framework:
+- Node.js with Express
+- TypeScript with tsx for development
+
+File Structure:
+server/
+├── index.ts      # Express app setup, middleware, server start
+├── routes.ts     # API route definitions
+├── storage.ts    # Database abstraction layer (IStorage interface)
+├── static.ts     # Static file serving (production)
+└── vite.ts       # Vite dev server integration
+
+Middleware:
+- JSON body parsing with raw body preservation
+- Request logging for API routes
+- Error handling with proper status codes
+
+Storage Interface (server/storage.ts):
+- IStorage interface defines CRUD operations
+- MongoStorage implements IStorage for MongoDB
+- Abstracts database operations for easy swapping
+
+Key Features:
+- Session-based cart management (via x-session-id header)
+- Zod validation for all API inputs
+- Automatic product seeding on startup
+
+================================================================================
+5. AI/ML COMPONENT (POSE DETECTION)
+================================================================================
+
+Location: client/src/hooks/use-pose-detection.ts
+
+Technology Stack:
+- TensorFlow.js (@tensorflow/tfjs)
+- MediaPipe Pose model via @tensorflow-models/pose-detection
+- WebGL backend for GPU acceleration
+
+How It Works:
+
+1. CAMERA INITIALIZATION
+   - Requests camera permission via navigator.mediaDevices.getUserMedia
+   - Captures 1280x720 video stream (front-facing camera)
+
+2. MODEL LOADING
+   - Loads MoveNet SINGLEPOSE_LIGHTNING model
+   - Lightweight model optimized for real-time performance
+   - Runs entirely in the browser (no server calls)
+
+3. POSE DETECTION LOOP
+   - Runs at ~30fps using requestAnimationFrame
+   - Detects 17 body keypoints per frame
+   - Focuses on: left/right shoulder, left/right hip
+
+4. BODY TRACKING
+   - Extracts shoulder and hip positions
+   - Calculates body center, width, height
+   - Applies smoothing (lerp) to reduce jitter
+   - Tracks body rotation angle
+
+5. CLOTHING OVERLAY
+   - Positions product image based on body bounds
+   - Scales to match torso dimensions
+   - Applies rotation to follow body angle
+   - Uses CSS transforms for real-time updates
+
+6. SIZE RECOMMENDATION
+   - Measures pixel distance between shoulders
+   - Converts to approximate centimeters
+   - Compares against product size chart
+   - Returns best-fit size (S, M, L, XL)
+   - Provides confidence score based on keypoint visibility
+
+Key Calculations:
+- Shoulder width = |rightShoulder.x - leftShoulder.x| * 100
+- Chest width = shoulderWidth * 2.2 (approximation)
+- Size matching = minimize(|chart.shoulder - measured| + |chart.chest - measured|)
+
+================================================================================
+6. DATA FLOW
+================================================================================
+
+Product Browsing:
+User -> ProductsPage -> useQuery('/api/products') -> Express -> MongoDB -> JSON
+
+Virtual Try-On:
+User -> TryOnPage -> Camera Permission -> TensorFlow.js
+                  -> Pose Detection (every frame)
+                  -> Body Bounds Calculation
+                  -> Overlay Product Image
+                  -> Size Recommendation Display
+
+Add to Cart:
+User -> Click "Add to Cart"
+     -> CartContext.addToCart(product, size, color)
+     -> POST /api/cart/items
+     -> Express -> MongoDB (session-based cart)
+     -> React Query cache invalidation
+     -> CartDrawer updates
+
+================================================================================
+7. DATABASE
+================================================================================
+
+Database: MongoDB Atlas (cloud-hosted document database)
+
+Collections:
+
+1. products
+   {
+     _id: ObjectId,
+     id: string (UUID),
+     name: string,
+     description: string,
+     price: number,
+     sizes: ["S", "M", "L", "XL"],
+     colors: ["#000000", "#FFFFFF", ...],
+     imageUrl: string,
+     category: "tshirt" | "hoodie",
+     sizeChart: {
+       S: { shoulder: 42, chest: 96 },
+       M: { shoulder: 44, chest: 102 },
+       L: { shoulder: 46, chest: 108 },
+       XL: { shoulder: 48, chest: 114 }
+     },
+     inStock: boolean
+   }
+
+2. carts
+   {
+     _id: ObjectId,
+     id: string (UUID),
+     sessionId: string,
+     items: [
+       {
+         productId: string,
+         size: "S" | "M" | "L" | "XL",
+         color: string,
+         quantity: number
+       }
+     ],
+     totalPrice: number
+   }
+
+Schema Validation:
+- Zod schemas defined in shared/schema.ts
+- Used by both frontend and backend
+- Ensures type safety across the stack
+
+================================================================================
+8. DEPLOYMENT
+================================================================================
+
+LOCAL DEVELOPMENT (Replit):
+- Command: npm run dev
+- Runs: tsx server/index.ts
+- Express serves both API and Vite dev server
+- Port: 5000
+
+PRODUCTION BUILD:
+- Command: npm run build
+- Uses: esbuild for server, Vite for client
+- Output: dist/ directory
+
+NETLIFY DEPLOYMENT:
+
+Build Process (script/build-netlify.ts):
+1. Clean dist/ directory
+2. Run Vite build -> dist/public/
+3. Copy attached_assets -> dist/public/attached_assets/
+4. Create _redirects file for SPA routing
+
+Configuration (netlify.toml):
+- Build command: npm run build:netlify
+- Publish directory: dist/public
+- Functions directory: netlify/functions
+
+Serverless Function (netlify/functions/api.ts):
+- Mirrors Express routes
+- Handles all /api/* requests
+- Connects to MongoDB Atlas
+- Seeds products if database empty
+
+Redirects:
+- /api/* -> /.netlify/functions/api/:splat (API calls)
+- /* -> /index.html (SPA client-side routing)
+
+Environment Variables Required:
+- MONGODB_URI: MongoDB Atlas connection string
+
+================================================================================
+9. KEY FILES REFERENCE
+================================================================================
+
+Configuration:
+- package.json         - Dependencies and scripts
+- vite.config.ts       - Vite bundler configuration
+- tailwind.config.ts   - TailwindCSS configuration
+- tsconfig.json        - TypeScript configuration
+- netlify.toml         - Netlify deployment configuration
+
+Shared Types:
+- shared/schema.ts     - Zod schemas for Product, Cart, etc.
+
+Frontend Entry:
+- client/index.html    - HTML template
+- client/src/main.tsx  - React entry point
+- client/src/App.tsx   - Root component
+
+Backend Entry:
+- server/index.ts      - Express server setup
+
+Build Scripts:
+- script/build.ts          - Production build (Replit)
+- script/build-netlify.ts  - Netlify-specific build
+
+================================================================================
+10. API ENDPOINTS
+================================================================================
+
+Products:
+GET    /api/products         - List all products
+GET    /api/products/:id     - Get single product
+POST   /api/products         - Create product (admin)
+PATCH  /api/products/:id     - Update product (admin)
+DELETE /api/products/:id     - Delete product (admin)
+
+Cart (requires x-session-id header):
+GET    /api/cart             - Get current cart
+POST   /api/cart/items       - Add item to cart
+PATCH  /api/cart/items       - Update item quantity
+DELETE /api/cart/items       - Remove item from cart
+DELETE /api/cart             - Clear entire cart
+
+Request/Response Format: JSON
+Authentication: Session-based (x-session-id header)
+Validation: Zod schemas with descriptive error messages
+
+================================================================================
+                           END OF DOCUMENTATION
+================================================================================
