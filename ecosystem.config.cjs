@@ -18,7 +18,7 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: 'production',
-        PORT: 5112
+        PORT: 5000
       },
       watch: false,
       ignore_watch: ['node_modules', 'logs', '*.log', '.git']

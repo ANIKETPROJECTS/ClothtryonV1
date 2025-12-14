@@ -38,11 +38,12 @@ name = "Start application"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "console"
+outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+waitForPort = 5000
 
 [agent]
 expertMode = true
@@ -50,4 +51,4 @@ expertMode = true
 [userenv]
 
 [userenv.development]
-PORT = "5112"
+PORT = "5000"
