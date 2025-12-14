@@ -74,17 +74,6 @@ const sampleProducts: InsertProduct[] = [
     inStock: true,
   },
   {
-    name: "Vintage Wash Tee",
-    description: "Retro-inspired t-shirt with a unique vintage wash finish. Soft hand-feel with lived-in comfort.",
-    price: 39.99,
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["#78716C", "#A1A1AA", "#D6D3D1"],
-    imageUrl: "/attached_assets/image_1765645162774.png",
-    category: "tshirt",
-    sizeChart: defaultSizeChart,
-    inStock: true,
-  },
-  {
     name: "Oversized Comfort Hoodie",
     description: "Trendy oversized hoodie for maximum comfort. Extra soft fleece with dropped shoulders.",
     price: 69.99,
@@ -96,17 +85,6 @@ const sampleProducts: InsertProduct[] = [
     inStock: true,
   },
   {
-    name: "Minimalist Logo Tee",
-    description: "Clean minimalist design with subtle logo detail. Premium pima cotton for exceptional softness.",
-    price: 36.99,
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["#FFFFFF", "#000000", "#6B7280"],
-    imageUrl: "/attached_assets/image_1765645790987.png",
-    category: "tshirt",
-    sizeChart: defaultSizeChart,
-    inStock: true,
-  },
-  {
     name: "Tech Fleece Hoodie",
     description: "Modern tech fleece construction with sleek silhouette. Lightweight warmth with premium finish.",
     price: 79.99,
@@ -114,17 +92,6 @@ const sampleProducts: InsertProduct[] = [
     colors: ["#334155", "#4F46E5", "#0D9488"],
     imageUrl: "/attached_assets/image_1765647518464.png",
     category: "hoodie",
-    sizeChart: defaultSizeChart,
-    inStock: true,
-  },
-  {
-    name: "Essential Crew Tee",
-    description: "Everyday essential t-shirt with classic crew neck. Durable construction that gets softer with every wash.",
-    price: 24.99,
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["#292524", "#FAFAF9", "#3B82F6", "#22C55E"],
-    imageUrl: "/attached_assets/image_1765647576112.png",
-    category: "tshirt",
     sizeChart: defaultSizeChart,
     inStock: true,
   },
@@ -179,12 +146,9 @@ export class MongoStorage implements IStorage {
   private async seedProducts(): Promise<void> {
     if (!this.productsCollection) return;
     
-    const existingCount = await this.productsCollection.countDocuments();
-    if (existingCount > 0) {
-      console.log(`Products already seeded (${existingCount} products found)`);
-      return;
-    }
-
+    // Always clear and reseed to ensure product list matches sample data
+    await this.productsCollection.deleteMany({});
+    
     const productsWithIds: Product[] = sampleProducts.map((product) => ({
       ...product,
       id: randomUUID(),
